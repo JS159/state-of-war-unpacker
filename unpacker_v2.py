@@ -126,10 +126,16 @@ class SpriteUnpacker:
             def read_short():
                 first = read_ubyte()
                 second = read_ubyte()
-                return (first | (second << 8))
+                value = (first | (second << 8))
+                # 处理16位有符号整数的补码
+                if value & 0x8000:  # 最高位为1，表示负数
+                    value = -((~value & 0xffff) + 1)
+                return value
             
             def read_ushort():
-                return read_short() & 0xffff
+                first = read_ubyte()
+                second = read_ubyte()
+                return (first | (second << 8)) & 0xffff
             
             def read_int():
                 first = read_ushort()
@@ -149,12 +155,14 @@ class SpriteUnpacker:
                 start_position = position
                 
                 # 读取帧头信息
-                frame_info['width'] = read_short()
-                frame_info['height'] = read_short()
+                frame_info['width'] = read_ushort()  # 宽度使用无符号数
+                frame_info['height'] = read_ushort()  # 高度使用无符号数
                 
+                # 锚点可能是负值，使用有符号数
                 frame_info['origin_x'] = read_short()
                 frame_info['origin_y'] = read_short()
                 
+                # 未知字段也可能包含负值
                 frame_info['unk1'] = read_short()
                 frame_info['unk2'] = read_short()
                 frame_info['unk3'] = read_short()
@@ -173,19 +181,19 @@ class SpriteUnpacker:
                         position = start_position + line_offset * 2
                         
                         x = 0
-                        num_command = read_short()
-                        skip_mode = read_short() == 0
+                        num_command = read_ushort()  # 命令计数使用无符号整数
+                        skip_mode = read_ushort() == 0  # 跳过模式标志使用无符号整数
                         
                         for i in range(num_command):
                             if skip_mode:
                                 # 跳过透明像素
-                                x += read_short()
+                                x += read_ushort()  # 跳过像素数使用无符号整数
                             else:
                                 # 读取有颜色的像素
-                                read_pixels = read_short()
+                                read_pixels = read_ushort()  # 像素数量使用无符号整数
                                 
                                 for j in range(read_pixels):
-                                    color16 = read_short()
+                                    color16 = read_ushort()  # 颜色值使用无符号整数
                                     # 将RGB565转换为RGBA
                                     r = ((color16 >> 11) & 0x1f) << 3
                                     g = ((color16 >> 5) & 0x3f) << 2
@@ -254,11 +262,20 @@ class SpriteUnpacker:
         def read_short():
             first = read_ubyte()
             second = read_ubyte()
-            return first | (second << 8)
+            value = (first | (second << 8))
+            # 处理16位有符号整数的补码
+            if value & 0x8000:  # 最高位为1，表示负数
+                value = -((~value & 0xffff) + 1)
+            return value
+
+        def read_ushort():
+            first = read_ubyte()
+            second = read_ubyte()
+            return (first | (second << 8)) & 0xffff
 
         def read_int():
-            first = read_short()
-            second = read_short()
+            first = read_ushort()
+            second = read_ushort()
             return (first | (second << 16)) & 0xffffffff
 
         frame_id = 0
@@ -274,12 +291,14 @@ class SpriteUnpacker:
             frame_info = {}
             frame_start_pos = position
             
-            frame_info['width'] = read_short()
-            frame_info['height'] = read_short()
+            frame_info['width'] = read_ushort()  # 宽度使用无符号数
+            frame_info['height'] = read_ushort()  # 高度使用无符号数
             
+            # 锚点可能是负值，使用有符号数
             frame_info['origin_x'] = read_short()
             frame_info['origin_y'] = read_short()
             
+            # 未知字段也可能包含负值
             frame_info['unk1'] = read_short()
             frame_info['unk2'] = read_short()
             frame_info['unk3'] = read_short()
@@ -298,13 +317,13 @@ class SpriteUnpacker:
                     
                     x = 0
                     try:
-                        num_commands = read_short()
-                        is_skip_mode_first = read_short()
+                        num_commands = read_ushort()  # 命令计数使用无符号整数
+                        is_skip_mode_first = read_ushort()  # 跳过模式标志使用无符号整数
                         is_skip_mode = is_skip_mode_first == 0
 
                         for _ in range(num_commands):
                             if x >= frame_info['width']: break
-                            count = read_short()
+                            count = read_ushort()  # 计数使用无符号整数
                             
                             if is_skip_mode:
                                 x += count
